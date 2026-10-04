@@ -25,11 +25,16 @@ defmodule Ballast.MixProject do
     ]
   end
 
+  def cli do
+    [preferred_envs: [precommit: :test]]
+  end
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:quokka, "~> 2.13", only: [:dev, :test], runtime: false}
+      {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 1.0", only: :test}
     ]
   end
 
