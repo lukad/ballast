@@ -13,9 +13,8 @@ defmodule Ballast.MixProject do
       package: package(),
       source_url: "https://github.com/lukad/ballast",
       name: "Ballast",
-      description: """
-      Splits your ExUnit suite across parallel CI runners using recorded test timings, so every shard finishes at about the same time.
-      """
+      description: "Timing-balanced test sharding for ExUnit.",
+      docs: docs()
     ]
   end
 
@@ -44,6 +43,7 @@ defmodule Ballast.MixProject do
   defp deps do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.0", only: [:dev, :test]}
     ]
@@ -57,6 +57,17 @@ defmodule Ballast.MixProject do
         "format",
         "credo",
         "test"
+      ]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: [
+        "README.md",
+        {"LICENSE-APACHE", title: "Apache License 2.0"},
+        {"LICENSE-MIT", title: "MIT License"}
       ]
     ]
   end
