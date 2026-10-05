@@ -30,7 +30,7 @@ defmodule Ballast.FilesTest do
              ~w(other/e_test.exs test/a_test.exs test/web/b_test.exs test/web/deep/c_test.exs)
   end
 
-  test "honors :test_pattern and :test_load_filters" do
+  test "honors :testa_pattern and :test_load_filters" do
     config = [
       test_paths: ["spec"],
       test_pattern: "*_spec.exs",

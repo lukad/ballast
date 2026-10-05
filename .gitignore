@@ -23,3 +23,5 @@ erl_crash.dump
 ballast-*.tar
 
 /.dexter
+
+/test/ballast_timings.json
