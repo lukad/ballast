@@ -61,10 +61,11 @@ With no snapshot, Ballast splits exactly like `--partitions`.
 Every shard computes the plan on its own machine. They only agree if they see
 the same test files and the same snapshot.
 
-- Keep `tmp/ballast/timings.json` in the CI cache, not in git. Restore it in
-  one job and hand that copy to every shard. If each shard job restores the
-  cache itself, another run can save a newer snapshot in between, and two
-  shards of one run plan from different snapshots.
+- Keep `tmp/ballast/timings.json` in the CI cache, not in git. Pick the cache
+  entry in one job and have every shard restore exactly that entry. If each
+  shard job looks up the newest entry itself, another run can save a newer
+  snapshot in between, and two shards of one run plan from different
+  snapshots.
 - Run `mix ballast.merge --check` on every CI run. Without it, disagreeing
   shards silently skip or repeat files.
 
@@ -82,21 +83,19 @@ env:
   MIX_ENV: test
 
 jobs:
+  # Looks up the newest snapshot once, so that every shard restores the same one.
   timings:
     runs-on: ubuntu-24.04
+    outputs:
+      key: ${{ steps.lookup.outputs.cache-matched-key }}
     steps:
-      - uses: actions/cache/restore@v6
+      - id: lookup
+        uses: actions/cache/restore@v6
         with:
           path: tmp/ballast/timings.json
           key: ballast-timings-${{ github.run_id }}
           restore-keys: ballast-timings-
-      # No cache yet: an empty snapshot plans like --partitions.
-      - run: |
-          mkdir -p tmp/ballast
-          test -f tmp/ballast/timings.json ||
-            echo '{"version": 1, "max_cases": 1, "files": {}}' > tmp/ballast/timings.json
-      - uses: actions/upload-artifact@v7
-        with: { name: ballast-timings, path: tmp/ballast/timings.json }
+          lookup-only: true
 
   test:
     needs: timings
@@ -110,8 +109,13 @@ jobs:
       - uses: erlef/setup-beam@v1
         with: { elixir-version: "1.20", otp-version: "27" }
       - run: mix deps.get
-      - uses: actions/download-artifact@v8
-        with: { name: ballast-timings, path: tmp/ballast }
+      # No snapshot yet: skip the restore and plan like --partitions.
+      - if: needs.timings.outputs.key != ''
+        uses: actions/cache/restore@v6
+        with:
+          path: tmp/ballast/timings.json
+          key: ${{ needs.timings.outputs.key }}
+          fail-on-cache-miss: true
       - run: mix ballast.test --shard ${{ matrix.shard }}/${{ strategy.job-total }}
       - uses: actions/upload-artifact@v7
         with:
@@ -140,6 +144,33 @@ jobs:
           path: tmp/ballast/timings.json
           key: ballast-timings-${{ github.run_id }}
 ```
+
+`path` must be the same in every cache step, because it is part of the cache
+version. `fail-on-cache-miss` fails a shard whose entry was evicted after the
+lookup, instead of letting it plan from no history.
+
+To hand the snapshot to the shards as an artifact instead, upload it in the
+`timings` job (with `lookup-only` removed) and download it in each shard. On
+the first run there is nothing to upload, so allow both steps to come up
+empty:
+
+```yaml
+      # timings job, after the restore
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ballast-timings
+          path: tmp/ballast/timings.json
+          if-no-files-found: ignore
+
+      # test job, instead of the restore
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with: { name: ballast-timings, path: tmp/ballast }
+```
+
+`continue-on-error` also hides real download failures. A shard that missed
+the snapshot plans from no history, and `mix ballast.merge --check` rejects
+the run.
 
 ## Details
 
