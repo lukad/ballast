@@ -29,6 +29,11 @@ defmodule Mix.Tasks.Ballast.Plan do
   @impl true
   def run(argv) do
     {opts, paths} = parse!(argv, @switches)
+
+    if Mix.Project.umbrella?() do
+      Mix.raise("ballast.plan does not support umbrella project roots yet")
+    end
+
     total = opts[:shards]
 
     if not (is_integer(total) and total >= 1) do
