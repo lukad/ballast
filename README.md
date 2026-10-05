@@ -6,7 +6,7 @@ Timing-balanced test sharding for ExUnit.
 take, so one slow shard holds up CI. Ballast records how long each file takes
 and balances the shards so they finish together.
 
-    $ mix ballast.plan --shards 3
+    $ mix ballast.plan --shards 4
     73 files, 0 without history, max_cases 36, plan 69e9b4be5416
 
     shard  files  ballast  round-robin
