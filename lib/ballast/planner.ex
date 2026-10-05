@@ -11,7 +11,7 @@ defmodule Ballast.Planner do
   ExUnit runs sync modules one after another and async modules up to
   `max_cases` at a time, so a shard's predicted wall time is not a plain sum:
 
-      cost = sync + max(longest async file, ceil(async / max_cases))
+      cost = sync + max(longest async module, ceil(async / max_cases))
 
   ## Algorithm
 
@@ -30,7 +30,7 @@ defmodule Ballast.Planner do
       when is_list(files) and is_integer(total) and total > 0 do
     files = Enum.uniq(files)
     known = Map.take(timings.files, files)
-    default = {default_weight(known, max_cases), 0}
+    default = {default_weight(known, max_cases), 0, 0}
 
     bins =
       for index <- 0..(total - 1) do
@@ -39,7 +39,7 @@ defmodule Ballast.Planner do
 
     files
     |> Enum.map(&{&1, Map.get(known, &1, default)})
-    |> Enum.sort_by(fn {file, {sync, async}} -> {-weight(sync, async, max_cases), file} end)
+    |> Enum.sort_by(fn {file, entry} -> {-weight(entry, max_cases), file} end)
     |> Enum.reduce(bins, &place(&1, &2, max_cases))
     |> Enum.map(&%{files: Enum.sort(&1.files), cost_us: cost(&1, max_cases)})
   end
@@ -58,8 +58,7 @@ defmodule Ballast.Planner do
 
       bin =
         Enum.reduce(mine, %{sync: 0, async: 0, longest: 0}, fn file, bin ->
-          {sync, async} = Map.get(timings.files, file, {0, 0})
-          add(bin, sync, async)
+          add(bin, Map.get(timings.files, file, {0, 0, 0}))
         end)
 
       %{files: mine, cost_us: cost(bin, max_cases)}
@@ -80,32 +79,32 @@ defmodule Ballast.Planner do
     |> binary_part(0, 12)
   end
 
-  defp place({file, {sync, async}}, bins, max_cases) do
+  defp place({file, entry}, bins, max_cases) do
     best =
       Enum.min_by(bins, fn bin ->
-        {cost(add(bin, sync, async), max_cases), length(bin.files), bin.index}
+        {cost(add(bin, entry), max_cases), length(bin.files), bin.index}
       end)
 
-    List.replace_at(bins, best.index, %{add(best, sync, async) | files: [file | best.files]})
+    List.replace_at(bins, best.index, %{add(best, entry) | files: [file | best.files]})
   end
 
-  defp add(bin, sync, async) do
-    %{bin | sync: bin.sync + sync, async: bin.async + async, longest: max(bin.longest, async)}
+  defp add(bin, {sync, async, longest}) do
+    %{bin | sync: bin.sync + sync, async: bin.async + async, longest: max(bin.longest, longest)}
   end
 
   defp cost(bin, max_cases) do
     bin.sync + max(bin.longest, ceil_div(bin.async, max_cases))
   end
 
-  defp weight(sync, async, max_cases) do
-    sync + ceil_div(async, max_cases)
+  defp weight({sync, async, longest}, max_cases) do
+    sync + max(longest, ceil_div(async, max_cases))
   end
 
   # A file with no history gets the median weight of the files that have one.
   defp default_weight(known, _max_cases) when map_size(known) == 0, do: 1
 
   defp default_weight(known, max_cases) do
-    weights = known |> Enum.map(fn {_, {s, a}} -> weight(s, a, max_cases) end) |> Enum.sort()
+    weights = known |> Enum.map(fn {_, entry} -> weight(entry, max_cases) end) |> Enum.sort()
     max(Enum.at(weights, div(length(weights), 2)), 1)
   end
 

@@ -14,7 +14,7 @@ defmodule Ballast.Report do
         "clean": true,
         "max_cases": 8,
         "files": {
-          "test/a_test.exs": {"sync_us": 1200000, "async_us": 0}
+          "test/a_test.exs": {"sync_us": 1200000, "async_us": 0, "longest_async_us": 0}
         }
       }
   """

@@ -10,8 +10,8 @@ defmodule Ballast.Timings do
         "version": 1,
         "max_cases": 8,
         "files": {
-          "test/a_test.exs": {"sync_us": 1200000, "async_us": 0},
-          "test/b_test.exs": {"sync_us": 0, "async_us": 830000}
+          "test/a_test.exs": {"sync_us": 1200000, "async_us": 0, "longest_async_us": 0},
+          "test/b_test.exs": {"sync_us": 0, "async_us": 830000, "longest_async_us": 410000}
         }
       }
   """
@@ -20,8 +20,11 @@ defmodule Ballast.Timings do
 
   @version 1
 
-  @typedoc "`{sync_us, async_us}`: wall time of the sync and async modules in one file."
-  @type entry :: {non_neg_integer(), non_neg_integer()}
+  @typedoc """
+  `{sync_us, async_us, longest_async_us}`: wall time of the sync modules and of
+  the async modules in one file, and of the longest of those async modules.
+  """
+  @type entry :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}
 
   @type t :: %__MODULE__{
           max_cases: pos_integer(),
@@ -57,9 +60,10 @@ defmodule Ballast.Timings do
   def from_map(%{"max_cases" => max_cases, "files" => files})
       when is_integer(max_cases) and max_cases > 0 and is_map(files) do
     Enum.reduce_while(files, {:ok, %__MODULE__{max_cases: max_cases}}, fn
-      {path, %{"sync_us" => s, "async_us" => a}}, {:ok, acc}
-      when is_binary(path) and is_integer(s) and s >= 0 and is_integer(a) and a >= 0 ->
-        {:cont, {:ok, %{acc | files: Map.put(acc.files, path, {s, a})}}}
+      {path, %{"sync_us" => s, "async_us" => a, "longest_async_us" => l}}, {:ok, acc}
+      when is_binary(path) and is_integer(s) and s >= 0 and is_integer(a) and is_integer(l) and
+             0 <= l and l <= a ->
+        {:cont, {:ok, %{acc | files: Map.put(acc.files, path, {s, a, l})}}}
 
       {path, _}, _ ->
         {:halt, {:error, "bad entry for #{inspect(path)}"}}
@@ -86,8 +90,13 @@ defmodule Ballast.Timings do
     lines =
       files
       |> Enum.sort()
-      |> Enum.map_intersperse(",\n", fn {path, {sync, async}} ->
-        [indent, "  ", JSON.encode!(path), ": {\"sync_us\": #{sync}, \"async_us\": #{async}}"]
+      |> Enum.map_intersperse(",\n", fn {path, {sync, async, longest}} ->
+        [
+          indent,
+          "  ",
+          JSON.encode!(path),
+          ": {\"sync_us\": #{sync}, \"async_us\": #{async}, \"longest_async_us\": #{longest}}"
+        ]
       end)
 
     ["{\n", lines, "\n", indent, "}"]

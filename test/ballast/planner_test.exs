@@ -2,6 +2,8 @@ defmodule Ballast.PlannerTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  import Ballast.Generators
+
   alias Ballast.{Planner, Timings}
 
   defp files(min \\ 0) do
@@ -15,8 +17,6 @@ defmodule Ballast.PlannerTest do
       Enum.map(names, &"test/#{&1}_test.exs")
     end
   end
-
-  defp entry, do: tuple({integer(0..5_000_000), integer(0..5_000_000)})
 
   # History for a random subset of `files`, plus entries for files that are gone.
   defp timings(files) do
@@ -43,16 +43,17 @@ defmodule Ballast.PlannerTest do
           durations <- list_of(integer(1..5_000_000), length: length(files)),
           total <- integer(1..12)
         ) do
-      {files, %Timings{files: Map.new(Enum.zip(files, Enum.map(durations, &{&1, 0})))}, total}
+      {files, %Timings{files: Map.new(Enum.zip(files, Enum.map(durations, &{&1, 0, 0})))}, total}
     end
   end
 
   # Reference implementation of the cost model.
   defp expected_cost(shard_files, %Timings{files: known, max_cases: max_cases}, default) do
-    entries = Enum.map(shard_files, &Map.get(known, &1, {default, 0}))
+    entries = Enum.map(shard_files, &Map.get(known, &1, {default, 0, 0}))
     sync = entries |> Enum.map(&elem(&1, 0)) |> Enum.sum()
-    async = Enum.map(entries, &elem(&1, 1))
-    sync + max(Enum.max(async, fn -> 0 end), ceil(Enum.sum(async) / max_cases))
+    async = entries |> Enum.map(&elem(&1, 1)) |> Enum.sum()
+    longest = entries |> Enum.map(&elem(&1, 2)) |> Enum.max(fn -> 0 end)
+    sync + max(longest, ceil(async / max_cases))
   end
 
   property "every file lands in exactly one shard" do
@@ -116,7 +117,8 @@ defmodule Ballast.PlannerTest do
   property "reported cost matches the cost model" do
     check all({files, timings, total} <- scenario()) do
       weights =
-        for {_, {s, a}} <- Map.take(timings.files, files), do: s + ceil(a / timings.max_cases)
+        for {_, {s, a, l}} <- Map.take(timings.files, files),
+            do: s + max(l, ceil(a / timings.max_cases))
 
       default =
         case Enum.sort(weights) do
@@ -153,32 +155,41 @@ defmodule Ballast.PlannerTest do
     timings = %Timings{
       max_cases: 2,
       files: %{
-        "s" => {3_000_000, 0},
-        "a1" => {0, 4_000_000},
-        "a2" => {0, 1_000_000},
-        "a3" => {0, 1_000_000}
+        "s" => {3_000_000, 0, 0},
+        "a1" => {0, 4_000_000, 4_000_000},
+        "a2" => {0, 1_000_000, 1_000_000},
+        "a3" => {0, 1_000_000, 1_000_000}
       }
     }
 
     assert [%{cost_us: 7_000_000}] = Planner.plan(["s", "a1", "a2", "a3"], timings, 1)
   end
 
+  test "only the longest async module of a file bounds its cost" do
+    # Eight 1s parameterizations of one module.
+    timings = %Timings{max_cases: 8, files: %{"p" => {0, 8_000_000, 1_000_000}}}
+
+    assert [%{cost_us: 1_000_000}] = Planner.plan(["p"], timings, 1)
+  end
+
   test "one dominant file gets a shard to itself" do
-    timings = %Timings{files: %{"big" => {90, 0}, "a" => {30, 0}, "b" => {30, 0}, "c" => {30, 0}}}
+    timings = %Timings{
+      files: %{"big" => {90, 0, 0}, "a" => {30, 0, 0}, "b" => {30, 0, 0}, "c" => {30, 0, 0}}
+    }
 
     assert [%{files: ["big"], cost_us: 90}, %{files: ["a", "b", "c"], cost_us: 90}] =
              Planner.plan(["a", "b", "big", "c"], timings, 2)
   end
 
   test "files without history get the median weight, never zero" do
-    timings = %Timings{files: %{"a" => {10, 0}, "b" => {20, 0}, "c" => {1000, 0}}}
+    timings = %Timings{files: %{"a" => {10, 0, 0}, "b" => {20, 0, 0}, "c" => {1000, 0, 0}}}
     plan = Planner.plan(["a", "b", "c", "new1", "new2", "new3"], timings, 2)
 
     assert [%{files: ["c"]}, %{files: ["a", "b", "new1", "new2", "new3"], cost_us: 90}] = plan
   end
 
   test "zero-weight files still spread across shards" do
-    timings = %Timings{files: Map.new(1..6, &{"f#{&1}", {0, 0}})}
+    timings = %Timings{files: Map.new(1..6, &{"f#{&1}", {0, 0, 0}})}
     plan = Planner.plan(Enum.map(1..6, &"f#{&1}"), timings, 3)
 
     assert Enum.map(plan, &length(&1.files)) == [2, 2, 2]
@@ -196,13 +207,14 @@ defmodule Ballast.PlannerTest do
       max_cases: 4,
       files:
         Map.new(Enum.with_index(files, 1), fn {file, i} ->
-          {file, {rem(i * 7919, 1000) * 1000, rem(i * 104_729, 700) * 1000 * rem(i, 2)}}
+          async = rem(i * 104_729, 700) * 1000 * rem(i, 2)
+          {file, {rem(i * 7919, 1000) * 1000, async, async}}
         end)
     }
 
     plan = Planner.plan(files, timings, 5)
 
-    assert Planner.digest(plan) == "f48ce5d319f8"
-    assert Enum.map(plan, & &1.cost_us) == [4_639_000, 4_614_000, 4_597_000, 4_611_500, 4_616_000]
+    assert Planner.digest(plan) == "1a18144f6080"
+    assert Enum.map(plan, & &1.cost_us) == [4_717_000, 4_661_000, 4_631_000, 4_674_000, 4_648_000]
   end
 end

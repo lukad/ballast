@@ -12,7 +12,7 @@ defmodule Ballast.ReportTest do
       clean?: Keyword.get(opts, :clean?, true),
       timings: %Timings{
         max_cases: Keyword.get(opts, :max_cases, 4),
-        files: Map.new(files, &{&1, {10, 0}})
+        files: Map.new(files, &{&1, {10, 0, 0}})
       }
     }
   end
@@ -102,7 +102,7 @@ defmodule Ballast.ReportTest do
   end
 
   test "full merge drops files missing from the reports" do
-    base = %Timings{max_cases: 8, files: %{"old" => {99, 0}, "a" => {1, 0}}}
+    base = %Timings{max_cases: 8, files: %{"old" => {99, 0, 0}, "a" => {1, 0, 0}}}
     reports = [report(1, 2, ["a"]), report(2, 2, ["b"])]
 
     assert {:ok, %Timings{files: full}} = Report.merge(reports, base: base)
@@ -110,12 +110,12 @@ defmodule Ballast.ReportTest do
   end
 
   test "partial merge keeps base files" do
-    base = %Timings{max_cases: 8, files: %{"old" => {99, 0}, "a" => {1, 0}}}
+    base = %Timings{max_cases: 8, files: %{"old" => {99, 0, 0}, "a" => {1, 0, 0}}}
 
     assert {:ok, %Timings{files: partial}} =
              Report.merge([report(2, 2, ["b"])], partial: true, base: base)
 
-    assert partial == %{"old" => {99, 0}, "a" => {1, 0}, "b" => {10, 0}}
+    assert partial == %{"old" => {99, 0, 0}, "a" => {1, 0, 0}, "b" => {10, 0, 0}}
   end
 
   test "merged max_cases is the minimum" do
