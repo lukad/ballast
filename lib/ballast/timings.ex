@@ -32,7 +32,7 @@ defmodule Ballast.Timings do
         }
 
   @doc "Default snapshot path."
-  def default_path, do: "test/ballast_timings.json"
+  def default_path, do: "tmp/ballast/timings.json"
 
   @doc "Reads a snapshot. A missing file is treated as an empty snapshot."
   @spec read(Path.t()) :: {:ok, t()} | {:error, String.t()}

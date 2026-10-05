@@ -25,8 +25,8 @@ defmodule Ballast.IntegrationTest do
   end
 
   setup %{dir: dir} do
+    # Also removes the snapshot, tmp/ballast/timings.json.
     File.rm_rf!(Path.join(dir, "tmp"))
-    File.rm(Path.join(dir, "test/ballast_timings.json"))
 
     Fixture.write_helper!(
       dir,
@@ -56,6 +56,11 @@ defmodule Ballast.IntegrationTest do
     end
   end
 
+  defp write_snapshot!(dir, contents) do
+    File.mkdir_p!(Path.join(dir, "tmp/ballast"))
+    File.write!(Path.join(dir, "tmp/ballast/timings.json"), contents)
+  end
+
   # Wall time of a set of files according to what a run measured.
   defp measured_cost(files, measured) do
     timings = %Timings{max_cases: measured.max_cases, files: Map.take(measured.files, files)}
@@ -78,10 +83,7 @@ defmodule Ballast.IntegrationTest do
           into: %{},
           do: {file, {600_000, 0, 0}}
 
-    File.write!(
-      Path.join(dir, "test/ballast_timings.json"),
-      Timings.encode(%Timings{max_cases: 4, files: files})
-    )
+    write_snapshot!(dir, Timings.encode(%Timings{max_cases: 4, files: files}))
 
     {output, 0, _} = Fixture.mix(dir, ["ballast.plan", "--shards", "3"])
 
@@ -105,13 +107,13 @@ defmodule Ballast.IntegrationTest do
     {output, status, _} = Fixture.mix(dir, ["ballast.merge", "--check"])
     assert status == 0, output
     assert output =~ "3 reports, 12 files, each run exactly once"
-    refute File.exists?(Path.join(dir, "test/ballast_timings.json"))
+    refute File.exists?(Path.join(dir, "tmp/ballast/timings.json"))
   end
 
   test "warm run: the slowest shard gets much faster", %{dir: dir} do
     cold = run_all_shards(dir, [{"SLEEP", "1"}])
     {_, 0, _} = Fixture.mix(dir, ["ballast.merge"])
-    {:ok, measured} = Timings.read(Path.join(dir, "test/ballast_timings.json"))
+    {:ok, measured} = Timings.read(Path.join(dir, "tmp/ballast/timings.json"))
 
     assert measured.files |> Map.keys() |> Enum.sort() == Enum.sort(Fixture.files())
     assert {sync, 0, 0} = measured.files["test/sample/t01_test.exs"]
@@ -159,7 +161,7 @@ defmodule Ballast.IntegrationTest do
     assert status == 1
     assert output =~ "missing reports for shards [3] of 3"
     assert output =~ "shards [2] had failures"
-    refute File.exists?(Path.join(dir, "test/ballast_timings.json"))
+    refute File.exists?(Path.join(dir, "tmp/ballast/timings.json"))
   end
 
   test "an empty shard runs no tests", %{dir: dir} do
@@ -262,9 +264,9 @@ defmodule Ballast.IntegrationTest do
     end
 
     test "a damaged snapshot stops the run", %{dir: dir} do
-      File.write!(Path.join(dir, "test/ballast_timings.json"), "{")
+      write_snapshot!(dir, "{")
       assert {output, 1, []} = Fixture.mix(dir, ["ballast.test", "--shard", "1/3"])
-      assert output =~ "test/ballast_timings.json: invalid JSON"
+      assert output =~ "tmp/ballast/timings.json: invalid JSON"
     end
   end
 end

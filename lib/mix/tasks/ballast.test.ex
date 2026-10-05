@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Ballast.Test do
     * `--shard INDEX/TOTAL` - which shard to run, 1-based. Without it the
       whole suite runs (and is still recorded).
     * `--timings PATH` - the snapshot to plan from. Defaults to
-      `test/ballast_timings.json`. A missing file means "no history", which
+      `tmp/ballast/timings.json`. A missing file means "no history", which
       plans like `mix test --partitions`.
     * `--report PATH` - where to write this shard's measurements. Defaults to
       `tmp/ballast/shard-INDEX-of-TOTAL.json`.

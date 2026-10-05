@@ -6,15 +6,16 @@ defmodule Mix.Tasks.Ballast.Merge do
   snapshot the next run plans from.
 
       $ mix ballast.merge
-      $ mix ballast.merge reports/*.json --output test/ballast_timings.json
+      $ mix ballast.merge reports/*.json --output timings.json
 
-  Without arguments it reads `tmp/ballast/*.json`. The merge is refused unless
-  the reports are all shards of one plan and every shard finished cleanly.
+  Without arguments it reads `tmp/ballast/shard-*.json`. The merge is refused
+  unless the reports are all shards of one plan and every shard finished
+  cleanly.
 
   ## Options
 
     * `--output PATH` - the snapshot to write. Defaults to
-      `test/ballast_timings.json`.
+      `tmp/ballast/timings.json`.
     * `--check` - only verify the reports, without writing a snapshot.
     * `--partial` - skip the completeness checks and lay the reports over the
       existing snapshot. Use that only to bootstrap or repair a snapshot.
@@ -35,7 +36,7 @@ defmodule Mix.Tasks.Ballast.Merge do
     output = opts[:output] || Timings.default_path()
     partial? = Keyword.get(opts, :partial, false)
     check? = Keyword.get(opts, :check, false)
-    paths = if paths == [], do: Path.wildcard("tmp/ballast/*.json"), else: paths
+    paths = if paths == [], do: Path.wildcard("tmp/ballast/shard-*.json"), else: paths
 
     reports = Enum.map(paths, &unwrap!(Report.read(&1)))
     base = if partial?, do: unwrap!(Timings.read(output)), else: %Timings{}

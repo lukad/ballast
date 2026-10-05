@@ -2,7 +2,7 @@
 #
 #     mix run bench/planner_quality.exs                              # synthetic suites
 #     mix run bench/planner_quality.exs --suites 5000 --seed 7
-#     mix run bench/planner_quality.exs test/ballast_timings.json    # a real snapshot
+#     mix run bench/planner_quality.exs tmp/ballast/timings.json     # a real snapshot
 #
 # Every figure is "slowest shard / lower bound". The bound is not always
 # reachable: compare rows, or this branch against main, not absolutes.

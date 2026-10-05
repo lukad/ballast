@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Ballast.Plan do
     * `--files INDEX` - print only the files of shard INDEX, one per line,
       and nothing else.
     * `--timings PATH` - the snapshot to plan from. Defaults to
-      `test/ballast_timings.json`.
+      `tmp/ballast/timings.json`.
   """
 
   use Mix.Task
