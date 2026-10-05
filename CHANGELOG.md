@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.0](https://github.com/lukad/ballast/compare/v0.1.0...v0.2.0) (2026-10-05)
+
+
+
+
+### Features:
+
+* add ballast.install Igniter installer by Luka Dornhecker
+
 ## [v0.1.0](https://github.com/lukad/ballast/compare/v0.1.0...v0.1.0) (2026-10-05)
 
 Initial release.
