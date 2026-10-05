@@ -44,6 +44,7 @@ defmodule Ballast.MixProject do
   defp deps do
     [
       {:git_ops, "~> 2.0", only: [:dev], runtime: false},
+      {:igniter, "~> 0.8", optional: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},

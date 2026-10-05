@@ -19,6 +19,12 @@ and balances the shards so they finish together.
 
 ## Setup
 
+With [Igniter](https://hexdocs.pm/igniter):
+
+    $ mix igniter.install ballast
+
+The installer makes the changes below. To set Ballast up by hand instead:
+
 ```elixir
 # mix.exs
 def cli do
