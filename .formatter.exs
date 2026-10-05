@@ -1,5 +1,6 @@
 # Used by "mix format"
 [
   inputs: ["{mix,.formatter}.exs", "{config,lib,test}/**/*.{ex,exs}"],
-  plugins: [Quokka]
+  plugins: [Quokka],
+  import_deps: [:stream_data]
 ]

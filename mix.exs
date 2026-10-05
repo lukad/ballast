@@ -34,7 +34,7 @@ defmodule Ballast.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
-      {:stream_data, "~> 1.0", only: :test}
+      {:stream_data, "~> 1.0", only: [:dev, :test]}
     ]
   end
 
