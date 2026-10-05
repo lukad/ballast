@@ -71,6 +71,26 @@ defmodule Ballast.IntegrationTest do
     assert String.split(planned, "\n", trim: true) == ran
   end
 
+  test "ballast.plan compares the plan with round-robin", %{dir: dir} do
+    files =
+      for file <- Fixture.files(),
+          file != "test/sample/web/t12_test.exs",
+          into: %{},
+          do: {file, {600_000, 0, 0}}
+
+    File.write!(
+      Path.join(dir, "test/ballast_timings.json"),
+      Timings.encode(%Timings{max_cases: 4, files: files})
+    )
+
+    {output, 0, _} = Fixture.mix(dir, ["ballast.plan", "--shards", "3"])
+
+    assert output =~ ~r/^12 files, 1 without history, max_cases 4, plan [0-9a-f]{12}\n/
+    assert output =~ "shard  files  ballast  round-robin\n"
+    assert output =~ ~r/^\s+1\s+\d+\s+\d+\.\ds\s+\d+\.\ds$/m
+    assert output =~ ~r/\nslowest shard: \d+\.\ds \(round-robin: \d+\.\ds\)\n/
+  end
+
   test "cold start: splits like --partitions and runs every file exactly once", %{dir: dir} do
     ran = run_all_shards(dir)
     sorted = Enum.sort(Fixture.files())

@@ -55,20 +55,40 @@ defmodule Mix.Tasks.Ballast.Plan do
   end
 
   defp print_plan(shell, plan, universe, timings, total) do
+    dealt = Planner.round_robin(universe, timings, total)
+    without_history = Enum.count(universe, &(not Map.has_key?(timings.files, &1)))
+
     shell.info(
-      "ballast: #{length(universe)} files over #{total} shards, " <>
-        "#{if map_size(timings.files) == 0, do: "no timings yet, ", else: ""}" <>
-        "plan #{Planner.digest(plan)}"
+      "#{length(universe)} files, #{without_history} without history, " <>
+        "max_cases #{timings.max_cases}, plan #{Planner.digest(plan)}\n"
     )
 
-    plan
-    |> Enum.with_index(1)
-    |> Enum.each(fn {shard, index} ->
-      shell.info(
-        "\nshard #{index}/#{total}: #{length(shard.files)} files, predicted #{seconds(shard.cost_us)}"
-      )
+    rows =
+      for {{shard, rr}, index} <- plan |> Enum.zip(dealt) |> Enum.with_index(1) do
+        [
+          Integer.to_string(index),
+          Integer.to_string(length(shard.files)),
+          seconds(shard.cost_us),
+          seconds(rr.cost_us)
+        ]
+      end
 
-      Enum.each(shard.files, &shell.info("  " <> &1))
+    shell.info(table(["shard", "files", "ballast", "round-robin"], rows))
+
+    shell.info("\nslowest shard: #{slowest(plan)} (round-robin: #{slowest(dealt)})")
+  end
+
+  defp table(header, rows) do
+    widths =
+      [header | rows]
+      |> Enum.zip_with(fn column -> column |> Enum.map(&String.length/1) |> Enum.max() end)
+
+    Enum.map_join([header | rows], "\n", fn row ->
+      row
+      |> Enum.zip_with(widths, &String.pad_leading/2)
+      |> Enum.join("  ")
     end)
   end
+
+  defp slowest(shards), do: shards |> Enum.map(& &1.cost_us) |> Enum.max() |> seconds()
 end

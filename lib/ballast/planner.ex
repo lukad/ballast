@@ -28,17 +28,14 @@ defmodule Ballast.Planner do
   @spec plan([String.t()], Timings.t(), pos_integer()) :: [shard()]
   def plan(files, %Timings{max_cases: max_cases} = timings, total)
       when is_list(files) and is_integer(total) and total > 0 do
-    files = Enum.uniq(files)
-    known = Map.take(timings.files, files)
-    default = {default_weight(known, max_cases), 0, 0}
-
     bins =
       for index <- 0..(total - 1) do
         %{index: index, files: [], sync: 0, async: 0, longest: 0}
       end
 
     files
-    |> Enum.map(&{&1, Map.get(known, &1, default)})
+    |> Enum.uniq()
+    |> entries(timings)
     |> Enum.sort_by(fn {file, entry} -> {-weight(entry, max_cases), file} end)
     |> Enum.reduce(bins, &place(&1, &2, max_cases))
     |> Enum.map(&%{files: Enum.sort(&1.files), cost_us: cost(&1, max_cases)})
@@ -46,22 +43,23 @@ defmodule Ballast.Planner do
 
   @doc """
   What `mix test --partitions` does: sorted files, dealt out round-robin.
-  Used for comparing plan quality in tests/reports.
+  Used for comparing plan quality in tests/reports. Files without history
+  get the same default weight as in `plan/3`.
   """
   @spec round_robin([String.t()], Timings.t(), pos_integer()) :: [shard()]
   def round_robin(files, %Timings{max_cases: max_cases} = timings, total)
       when is_list(files) and is_integer(total) and total > 0 do
-    indexed = files |> Enum.uniq() |> Enum.sort() |> Enum.with_index()
+    indexed = files |> Enum.uniq() |> Enum.sort() |> entries(timings) |> Enum.with_index()
 
     for index <- 0..(total - 1) do
-      mine = for {file, i} <- indexed, rem(i, total) == index, do: file
+      mine = for {entry, i} <- indexed, rem(i, total) == index, do: entry
 
       bin =
-        Enum.reduce(mine, %{sync: 0, async: 0, longest: 0}, fn file, bin ->
-          add(bin, Map.get(timings.files, file, {0, 0, 0}))
+        Enum.reduce(mine, %{sync: 0, async: 0, longest: 0}, fn {_file, entry}, bin ->
+          add(bin, entry)
         end)
 
-      %{files: mine, cost_us: cost(bin, max_cases)}
+      %{files: Enum.map(mine, &elem(&1, 0)), cost_us: cost(bin, max_cases)}
     end
   end
 
@@ -77,6 +75,12 @@ defmodule Ballast.Planner do
     :crypto.hash(:sha256, canonical)
     |> Base.encode16(case: :lower)
     |> binary_part(0, 12)
+  end
+
+  defp entries(files, %Timings{max_cases: max_cases} = timings) do
+    known = Map.take(timings.files, files)
+    default = {default_weight(known, max_cases), 0, 0}
+    Enum.map(files, &{&1, Map.get(known, &1, default)})
   end
 
   defp place({file, entry}, bins, max_cases) do
