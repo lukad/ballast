@@ -1,10 +1,11 @@
 defmodule Ballast.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
   def project do
     [
       app: :ballast,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -42,6 +43,7 @@ defmodule Ballast.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:git_ops, "~> 2.0", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
