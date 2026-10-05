@@ -60,4 +60,8 @@ defmodule Ballast.FilesTest do
 
     assert Files.normalize(Path.join(dir, "test/a_test.exs")) == "test/a_test.exs"
   end
+
+  test "normalize/2 is relative to the given root" do
+    assert Files.normalize("/project/test/a_test.exs", "/project") == "test/a_test.exs"
+  end
 end

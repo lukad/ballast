@@ -30,10 +30,10 @@ defmodule Ballast.Files do
     |> Enum.sort()
   end
 
-  @doc "Project-relative path with forward slashes."
-  @spec normalize(Path.t()) :: String.t()
-  def normalize(path) do
-    path |> Path.relative_to_cwd() |> String.replace("\\", "/")
+  @doc "Path relative to `cwd` (the project root), with forward slashes."
+  @spec normalize(Path.t(), Path.t()) :: String.t()
+  def normalize(path, cwd \\ File.cwd!()) do
+    path |> Path.relative_to(cwd) |> String.replace("\\", "/")
   end
 
   defp test_paths(config) do
