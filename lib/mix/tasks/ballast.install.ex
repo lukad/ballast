@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Ballast.Install.Docs do
 
     Makes these changes:
 
-      * adds `{:ballast, "~> 0.3.0", only: :test, runtime: false}` to `deps/0`
+      * adds `{:ballast, "~> 0.4.0", only: :test, runtime: false}` to `deps/0`
       * sets `ballast.test`, `ballast.merge` and `ballast.plan` to `:test` in
         the `preferred_envs` of `cli/0`
       * adds `Ballast.Formatter` to the formatters of `ExUnit.start/1` in

@@ -36,7 +36,7 @@ def cli do
 end
 
 defp deps do
-  [{:ballast, "~> 0.3.0", only: :test, runtime: false}]
+  [{:ballast, "~> 0.4.0", only: :test, runtime: false}]
 end
 ```
 

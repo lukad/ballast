@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.4.0](https://github.com/lukad/ballast/compare/v0.3.0...v0.4.0) (2026-10-16)
+
+
+
+
+### Features:
+
+* add --json output to ballast.plan and ballast.merge by [@lukad](https://github.com/lukad)
+
 ## [v0.3.0](https://github.com/lukad/ballast/compare/v0.2.0...v0.3.0) (2026-10-16)
 
 
