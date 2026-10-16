@@ -12,7 +12,7 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 ### Features:
 
-* account for ExUnit :group when planning by Luka Dornhecker
+* account for ExUnit :group when planning by [@lukad](https://github.com/lukad)
 
 ## [v0.2.0](https://github.com/lukad/ballast/compare/v0.1.0...v0.2.0) (2026-10-05)
 
@@ -21,7 +21,7 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 ### Features:
 
-* add ballast.install Igniter installer by Luka Dornhecker
+* add ballast.install Igniter installer by [@lukad](https://github.com/lukad)
 
 ## [v0.1.0](https://github.com/lukad/ballast/compare/v0.1.0...v0.1.0) (2026-10-05)
 
