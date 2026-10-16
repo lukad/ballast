@@ -16,6 +16,14 @@ defmodule Ballast.FormatterTest do
     use ExUnit.Case, async: true, register: false
   end
 
+  defmodule Grouped do
+    use ExUnit.Case, async: true, group: :db, register: false
+  end
+
+  defmodule SyncGrouped do
+    use ExUnit.Case, group: :db, register: false
+  end
+
   setup %{tmp_dir: dir} do
     %{path: Path.join(dir, "report.json")}
   end
@@ -105,7 +113,10 @@ defmodule Ballast.FormatterTest do
     run(pid, module(Sync, "test/sync_test.exs"), 30)
     run(pid, module(Async, "test/async_test.exs"), 30)
 
-    assert %{"test/sync_test.exs" => {sync, 0, 0}, "test/async_test.exs" => {0, async, async}} =
+    assert %{
+             "test/sync_test.exs" => {sync, 0, 0, %{}},
+             "test/async_test.exs" => {0, async, async, %{}}
+           } =
              finish(pid, path).timings.files
 
     assert sync >= 30_000 and async >= 30_000
@@ -118,9 +129,25 @@ defmodule Ballast.FormatterTest do
     run(pid, module(Async, "test/multi_test.exs"), 10)
     run(pid, module(Async, "test/multi_test.exs"), 30)
 
-    assert %{"test/multi_test.exs" => {sync, async, longest}} = finish(pid, path).timings.files
+    assert %{"test/multi_test.exs" => {sync, async, longest, %{}}} =
+             finish(pid, path).timings.files
+
     assert sync >= 40_000
     assert longest >= 30_000 and async - longest >= 10_000
+  end
+
+  test "grouped async modules add up per group; a sync module's group is ignored", %{
+    path: path
+  } do
+    pid = start(path, ["test/group_test.exs"])
+    run(pid, module(Grouped, "test/group_test.exs"), 20)
+    run(pid, module(Grouped, "test/group_test.exs"), 20)
+    run(pid, module(SyncGrouped, "test/group_test.exs"), 10)
+
+    assert %{"test/group_test.exs" => {sync, 0, 0, %{":db" => grouped}}} =
+             finish(pid, path).timings.files
+
+    assert sync >= 10_000 and grouped >= 40_000
   end
 
   test "overlapping runs of a parameterized module are each counted", %{path: path} do
@@ -135,7 +162,7 @@ defmodule Ballast.FormatterTest do
     GenServer.cast(pid, {:module_finished, one})
     GenServer.cast(pid, {:module_finished, two})
 
-    assert %{"test/param_test.exs" => {0, async, longest}} = finish(pid, path).timings.files
+    assert %{"test/param_test.exs" => {0, async, longest, %{}}} = finish(pid, path).timings.files
     assert longest >= 25_000 and async - longest >= 25_000
   end
 
@@ -152,7 +179,7 @@ defmodule Ballast.FormatterTest do
     GenServer.cast(pid, {:module_finished, dup})
 
     assert %Report{clean?: true, timings: %{files: files}} = finish(pid, path)
-    assert %{"test/param_test.exs" => {0, async, _}} = files
+    assert %{"test/param_test.exs" => {0, async, _, %{}}} = files
     assert async >= 50_000
   end
 
@@ -161,7 +188,10 @@ defmodule Ballast.FormatterTest do
     # ExUnit sends a module with all tests excluded as `tests: []`.
     run(pid, module(Sync, "test/excluded_test.exs", tests: []))
 
-    assert %{"test/excluded_test.exs" => {_, 0, 0}, "test/no_module_test.exs" => {0, 0, 0}} =
+    assert %{
+             "test/excluded_test.exs" => {_, 0, 0, %{}},
+             "test/no_module_test.exs" => {0, 0, 0, %{}}
+           } =
              finish(pid, path).timings.files
   end
 
@@ -171,7 +201,7 @@ defmodule Ballast.FormatterTest do
     run(pid, module(Sync, "test/test_helper.exs"))
 
     assert %Report{clean?: true, timings: %{files: files}} = finish(pid, path)
-    assert files == %{"test/a_test.exs" => {0, 0, 0}}
+    assert files == %{"test/a_test.exs" => {0, 0, 0, %{}}}
   end
 
   test "an old report is deleted when the suite starts", %{path: path} do

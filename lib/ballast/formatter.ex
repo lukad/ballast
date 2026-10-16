@@ -10,8 +10,9 @@ defmodule Ballast.Formatter do
   before the suite starts.
 
   It measures the wall time between `:module_started` and `:module_finished`,
-  which includes `setup_all`. Only the shard's own files are recorded; modules
-  defined elsewhere, such as in `test/test_helper.exs`, are left out.
+  which includes `setup_all`. Async modules with a `:group` are summed per
+  group. Only the shard's own files are recorded; modules defined elsewhere,
+  such as in `test/test_helper.exs`, are left out.
 
   A report already at the recording's path is deleted when the suite starts.
   An aborted run, or one that cannot write its report, leaves no report
@@ -66,7 +67,7 @@ defmodule Ballast.Formatter do
          # pairs them with their starts in order.
          running: [],
          # Files that never report a module still show up in the report.
-         files: Map.new(recording.files, &{&1, {0, 0, 0}}),
+         files: Map.new(recording.files, &{&1, {0, 0, 0, %{}}}),
          clean?: true
        }}
     end
@@ -108,14 +109,19 @@ defmodule Ballast.Formatter do
 
   defp record_module(state, module, elapsed) do
     file = Files.normalize(module.file, state.cwd)
-    async? = module.name.__ex_unit__(:config).async?
-    files = Map.replace_lazy(state.files, file, &add(&1, elapsed, async?))
+    config = module.name.__ex_unit__(:config)
+    files = Map.replace_lazy(state.files, file, &add(&1, elapsed, config))
 
     %{state | files: files, clean?: state.clean? and passed?(module)}
   end
 
-  defp add({s, a, l}, elapsed, true), do: {s, a + elapsed, max(l, elapsed)}
-  defp add({s, a, l}, elapsed, false), do: {s + elapsed, a, l}
+  # ExUnit ignores the group of a sync module.
+  defp add({s, a, l, g}, elapsed, %{async?: false}), do: {s + elapsed, a, l, g}
+  defp add({s, a, l, g}, elapsed, %{group: nil}), do: {s, a + elapsed, max(l, elapsed), g}
+
+  defp add({s, a, l, g}, elapsed, %{group: group}) do
+    {s, a, l, Map.update(g, Timings.group_key(group), elapsed, &(&1 + elapsed))}
+  end
 
   defp write_report(state, clean?) do
     %{path: path, index: index, total: total, digest: digest} = state.recording

@@ -81,7 +81,7 @@ defmodule Ballast.IntegrationTest do
       for file <- Fixture.files(),
           file != "test/sample/web/t12_test.exs",
           into: %{},
-          do: {file, {600_000, 0, 0}}
+          do: {file, {600_000, 0, 0, %{}}}
 
     write_snapshot!(dir, Timings.encode(%Timings{max_cases: 4, files: files}))
 
@@ -116,9 +116,9 @@ defmodule Ballast.IntegrationTest do
     {:ok, measured} = Timings.read(Path.join(dir, "tmp/ballast/timings.json"))
 
     assert measured.files |> Map.keys() |> Enum.sort() == Enum.sort(Fixture.files())
-    assert {sync, 0, 0} = measured.files["test/sample/t01_test.exs"]
+    assert {sync, 0, 0, %{}} = measured.files["test/sample/t01_test.exs"]
     assert sync >= 600_000
-    assert {0, async, _longest} = measured.files["test/sample/t08_test.exs"]
+    assert {0, async, _longest, %{}} = measured.files["test/sample/t08_test.exs"]
     assert async >= 400_000
 
     warm = run_all_shards(dir, [{"SLEEP", "1"}])

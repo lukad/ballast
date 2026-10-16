@@ -7,7 +7,7 @@ defmodule Ballast.Report do
   `merge/2` uses those to refuse inconsistent runs.
 
       {
-        "version": 1,
+        "version": 2,
         "shard": 2,
         "total": 3,
         "plan_digest": "9f86d081",
@@ -21,7 +21,7 @@ defmodule Ballast.Report do
 
   alias Ballast.Timings
 
-  @version 1
+  @version 2
 
   defstruct index: 1, total: 1, digest: nil, clean?: true, timings: %Timings{}
 

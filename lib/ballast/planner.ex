@@ -9,9 +9,15 @@ defmodule Ballast.Planner do
   ## Cost model
 
   ExUnit runs sync modules one after another and async modules up to
-  `max_cases` at a time, so a shard's predicted wall time is not a plain sum:
+  `max_cases` at a time. The async modules of one `:group` run one at a time,
+  and only after every ungrouped async module has started. So a shard's
+  predicted wall time is not a plain sum:
 
-      cost = sync + max(longest async module, ceil(async / max_cases))
+      cost = sync + max(longest ungrouped async module,
+                        ceil((ungrouped + grouped) / max_cases),
+                        ceil(ungrouped / max_cases) + longest group)
+
+  A group's files may be split across shards.
 
   ## Algorithm
 
@@ -25,12 +31,14 @@ defmodule Ballast.Planner do
 
   @type shard :: %{files: [String.t()], cost_us: non_neg_integer()}
 
+  @empty %{sync: 0, async: 0, longest: 0, grouped: 0, groups: %{}}
+
   @spec plan([String.t()], Timings.t(), pos_integer()) :: [shard()]
   def plan(files, %Timings{max_cases: max_cases} = timings, total)
       when is_list(files) and is_integer(total) and total > 0 do
     bins =
       for index <- 0..(total - 1) do
-        %{index: index, files: [], sync: 0, async: 0, longest: 0}
+        Map.merge(@empty, %{index: index, files: []})
       end
 
     files
@@ -54,10 +62,7 @@ defmodule Ballast.Planner do
     for index <- 0..(total - 1) do
       mine = for {entry, i} <- indexed, rem(i, total) == index, do: entry
 
-      bin =
-        Enum.reduce(mine, %{sync: 0, async: 0, longest: 0}, fn {_file, entry}, bin ->
-          add(bin, entry)
-        end)
+      bin = Enum.reduce(mine, @empty, fn {_file, entry}, bin -> add(bin, entry) end)
 
       %{files: Enum.map(mine, &elem(&1, 0)), cost_us: cost(bin, max_cases)}
     end
@@ -79,7 +84,7 @@ defmodule Ballast.Planner do
 
   defp entries(files, %Timings{max_cases: max_cases} = timings) do
     known = Map.take(timings.files, files)
-    default = {default_weight(known, max_cases), 0, 0}
+    default = {default_weight(known, max_cases), 0, 0, %{}}
     Enum.map(files, &{&1, Map.get(known, &1, default)})
   end
 
@@ -92,17 +97,35 @@ defmodule Ballast.Planner do
     List.replace_at(bins, best.index, %{add(best, entry) | files: [file | best.files]})
   end
 
-  defp add(bin, {sync, async, longest}) do
-    %{bin | sync: bin.sync + sync, async: bin.async + async, longest: max(bin.longest, longest)}
+  defp add(bin, {sync, async, longest, groups}) do
+    %{
+      bin
+      | sync: bin.sync + sync,
+        async: bin.async + async,
+        longest: max(bin.longest, longest),
+        grouped: bin.grouped + Enum.sum(Map.values(groups)),
+        groups: Map.merge(bin.groups, groups, fn _, a, b -> a + b end)
+    }
   end
 
   defp cost(bin, max_cases) do
-    bin.sync + max(bin.longest, ceil_div(bin.async, max_cases))
+    bin.sync +
+      Enum.max([
+        bin.longest,
+        ceil_div(bin.async + bin.grouped, max_cases),
+        group_chain(bin, max_cases)
+      ])
   end
 
-  defp weight({sync, async, longest}, max_cases) do
-    sync + max(longest, ceil_div(async, max_cases))
+  # ExUnit.Server.take_modules/1 hands out groups after every ungrouped async
+  # module has started.
+  defp group_chain(%{groups: groups}, _max_cases) when map_size(groups) == 0, do: 0
+
+  defp group_chain(bin, max_cases) do
+    ceil_div(bin.async, max_cases) + Enum.max(Map.values(bin.groups))
   end
+
+  defp weight(entry, max_cases), do: cost(add(@empty, entry), max_cases)
 
   # A file with no history gets the median weight of the files that have one.
   defp default_weight(known, _max_cases) when map_size(known) == 0, do: 1

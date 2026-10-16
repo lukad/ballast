@@ -17,14 +17,14 @@ defmodule Bench do
   No split of `files` into `total` shards can have a slowest shard below this:
   the most expensive single file, or an even share of all the work.
   """
-  def lower_bound(%Timings{files: known, max_cases: max_cases}, files, total) do
+  def lower_bound(%Timings{files: known, max_cases: max_cases} = timings, files, total) do
     entries = Enum.map(files, &Map.fetch!(known, &1))
     sync = entries |> Enum.map(&elem(&1, 0)) |> Enum.sum()
-    async = entries |> Enum.map(&elem(&1, 1)) |> Enum.sum()
+    async = entries |> Enum.map(fn {_, a, _, g} -> a + Enum.sum(Map.values(g)) end) |> Enum.sum()
 
     biggest =
-      entries
-      |> Enum.map(fn {s, a, longest} -> s + max(longest, ceil_div(a, max_cases)) end)
+      files
+      |> Enum.map(fn file -> slowest(Planner.round_robin([file], timings, 1)) end)
       |> Enum.max()
 
     max(biggest, ceil_div(sync + ceil_div(async, max_cases), total))
@@ -46,24 +46,28 @@ defmodule Bench do
   # Made-up mix of file shapes.
   defp random_entry do
     case :rand.uniform(10) do
-      # 50%: a sync file
-      n when n <= 5 ->
-        {duration(), 0, 0}
+      # 40%: a sync file
+      n when n <= 4 ->
+        {duration(), 0, 0, %{}}
 
       # 30%: one async module
-      n when n <= 8 ->
+      n when n <= 7 ->
         d = duration()
-        {0, d, d}
+        {0, d, d, %{}}
 
       # 10%: several async modules in one file
-      9 ->
+      8 ->
         modules = for _ <- 1..Enum.random(2..5), do: duration()
-        {0, Enum.sum(modules), Enum.max(modules)}
+        {0, Enum.sum(modules), Enum.max(modules), %{}}
 
       # 10%: one parameterized async module
-      10 ->
+      9 ->
         d = duration()
-        {0, d * Enum.random(2..8), d}
+        {0, d * Enum.random(2..8), d, %{}}
+
+      # 10%: one async module in one of a few groups
+      10 ->
+        {0, 0, 0, %{Enum.random([":db", ":search", ":mail"]) => duration()}}
     end
   end
 
