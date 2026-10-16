@@ -46,7 +46,7 @@ defmodule Ballast.MixProject do
       {:git_ops, "~> 2.0", only: [:dev], runtime: false},
       {:igniter, "~> 0.8", optional: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.0", only: [:dev, :test]}
     ]
@@ -69,6 +69,7 @@ defmodule Ballast.MixProject do
       main: "readme",
       extras: [
         "README.md",
+        "usage-rules.md",
         {"LICENSE-APACHE", title: "Apache License 2.0"},
         {"LICENSE-MIT", title: "MIT License"}
       ]
