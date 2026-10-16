@@ -78,6 +78,8 @@ defmodule Ballast.MixProject do
   defp package do
     [
       licenses: ["MIT", "Apache-2.0"],
+      files:
+        ~w(lib .formatter.exs mix.exs README.md CHANGELOG.md LICENSE-APACHE LICENSE-MIT usage-rules.md),
       links: %{
         "GitHub" => "https://github.com/lukad/ballast",
         "Documentation" => "https://hexdocs.pm/ballast"
