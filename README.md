@@ -1,3 +1,7 @@
+[![Hex.pm Version](https://img.shields.io/hexpm/v/ballast)](https://hex.pm/packages/ballast)
+[![Hex.pm Downloads](https://img.shields.io/hexpm/dt/ballast)](https://hex.pm/packages/ballast)
+[![Hex.pm License](https://img.shields.io/hexpm/l/ballast)](https://hex.pm/packages/ballast)
+
 # Ballast
 
 Timing-balanced test sharding for ExUnit.
