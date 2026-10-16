@@ -76,22 +76,27 @@ defmodule Ballast.Timings do
   @doc false
   def from_map(%{"max_cases" => max_cases, "files" => files})
       when is_integer(max_cases) and max_cases > 0 and is_map(files) do
-    Enum.reduce_while(files, {:ok, %__MODULE__{max_cases: max_cases}}, fn
-      {path, %{"sync_us" => s, "async_us" => a, "longest_async_us" => l} = entry}, {:ok, acc}
-      when is_binary(path) and is_integer(s) and s >= 0 and is_integer(a) and is_integer(l) and
-             0 <= l and l <= a ->
-        groups = Map.get(entry, "groups", %{})
-
-        if is_map(groups) and Enum.all?(groups, fn {_, us} -> is_integer(us) and us >= 0 end),
-          do: {:cont, {:ok, %{acc | files: Map.put(acc.files, path, {s, a, l, groups})}}},
-          else: {:halt, {:error, "bad entry for #{inspect(path)}"}}
-
-      {path, _}, _ ->
-        {:halt, {:error, "bad entry for #{inspect(path)}"}}
+    Enum.reduce_while(files, {:ok, %__MODULE__{max_cases: max_cases}}, fn {path, entry},
+                                                                          {:ok, acc} ->
+      case entry_from_map(entry) do
+        {:ok, entry} -> {:cont, {:ok, %{acc | files: Map.put(acc.files, path, entry)}}}
+        :error -> {:halt, {:error, "bad entry for #{inspect(path)}"}}
+      end
     end)
   end
 
   def from_map(_), do: {:error, "missing or invalid max_cases/files"}
+
+  defp entry_from_map(%{"sync_us" => s, "async_us" => a, "longest_async_us" => l} = entry)
+       when is_integer(s) and s >= 0 and is_integer(a) and is_integer(l) and 0 <= l and l <= a do
+    groups = Map.get(entry, "groups", %{})
+
+    if is_map(groups) and Enum.all?(groups, fn {_, us} -> is_integer(us) and us >= 0 end),
+      do: {:ok, {s, a, l, groups}},
+      else: :error
+  end
+
+  defp entry_from_map(_), do: :error
 
   @doc "Encodes a snapshot."
   @spec encode(t()) :: iodata()
