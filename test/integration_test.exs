@@ -93,6 +93,37 @@ defmodule Ballast.IntegrationTest do
     assert output =~ ~r/\nslowest shard: \d+\.\ds \(round-robin: \d+\.\ds\)\n/
   end
 
+  test "ballast.plan --json prints the plan as JSON", %{dir: dir} do
+    files =
+      for file <- Fixture.files(),
+          file != "test/sample/web/t12_test.exs",
+          into: %{},
+          do: {file, {600_000, 0, 0, %{}}}
+
+    write_snapshot!(dir, Timings.encode(%Timings{max_cases: 4, files: files}))
+
+    {output, 0, _} = Fixture.mix(dir, ["ballast.plan", "--shards", "3", "--json"])
+    {table, 0, _} = Fixture.mix(dir, ["ballast.plan", "--shards", "3"])
+    {second, 0, _} = Fixture.mix(dir, ["ballast.plan", "--shards", "3", "--files", "2"])
+
+    assert %{
+             "total" => 3,
+             "plan_digest" => digest,
+             "max_cases" => 4,
+             "file_count" => 12,
+             "without_history" => ["test/sample/web/t12_test.exs"],
+             "slowest_us" => slowest,
+             "round_robin_slowest_us" => rr_slowest,
+             "shards" => [_, %{"shard" => 2, "files" => files_2}, _] = shards
+           } = JSON.decode!(output)
+
+    assert table =~ "plan #{digest}"
+    assert files_2 == String.split(second, "\n", trim: true)
+    assert shards |> Enum.flat_map(& &1["files"]) |> Enum.sort() == Enum.sort(Fixture.files())
+    assert slowest == shards |> Enum.map(& &1["predicted_us"]) |> Enum.max()
+    assert rr_slowest == shards |> Enum.map(& &1["round_robin_us"]) |> Enum.max()
+  end
+
   test "cold start: splits like --partitions and runs every file exactly once", %{dir: dir} do
     ran = run_all_shards(dir)
     sorted = Enum.sort(Fixture.files())
@@ -107,6 +138,12 @@ defmodule Ballast.IntegrationTest do
     {output, status, _} = Fixture.mix(dir, ["ballast.merge", "--check"])
     assert status == 0, output
     assert output =~ "3 reports, 12 files, each run exactly once"
+
+    {output, 0, _} = Fixture.mix(dir, ["ballast.merge", "--check", "--json"])
+
+    assert %{"ok" => true, "reports" => [_, _, _], "file_count" => 12, "output" => nil} =
+             JSON.decode!(output)
+
     refute File.exists?(Path.join(dir, "tmp/ballast/timings.json"))
   end
 
@@ -161,6 +198,13 @@ defmodule Ballast.IntegrationTest do
     assert status == 1
     assert output =~ "missing reports for shards [3] of 3"
     assert output =~ "shards [2] had failures"
+
+    {output, 1, _} = Fixture.mix(dir, ["ballast.merge", "--json"])
+
+    assert %{"ok" => false, "errors" => errors} = JSON.decode!(output)
+    assert "missing reports for shards [3] of 3" in errors
+    assert "shards [2] had failures or were aborted" in errors
+
     refute File.exists?(Path.join(dir, "tmp/ballast/timings.json"))
   end
 
@@ -261,6 +305,11 @@ defmodule Ballast.IntegrationTest do
                Fixture.mix(dir, ["ballast.test", "--shard", "1/3", "--partitions", "3"])
 
       assert output =~ "--partitions is not supported"
+
+      assert {output, 1, []} =
+               Fixture.mix(dir, ["ballast.plan", "--shards", "3", "--files", "1", "--json"])
+
+      assert output =~ "--json cannot be combined with --files"
     end
 
     test "a damaged snapshot stops the run", %{dir: dir} do

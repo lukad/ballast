@@ -37,6 +37,18 @@ replaces `mix test --partitions T`.
 - Use `mix ballast.plan --shards TOTAL` to see the split without running tests.
   `--files INDEX` prints only that shard's files, one per line.
 
+## Reading results
+
+- To inspect results programmatically, pass `--json` instead of parsing the
+  text output. `mix help ballast.plan` and `mix help ballast.merge` describe
+  the fields.
+- `mix ballast.plan --shards TOTAL --json` prints the plan digest, each
+  shard's files and predicted time, the round-robin comparison, and the files
+  without history. Durations are in microseconds.
+- `mix ballast.merge --check --json` prints `{"ok": true, ...}`, or
+  `{"ok": false, "errors": [...]}` and exits with status 1. The errors say
+  why shards disagree, are missing or failed.
+
 ## Snapshots and CI
 
 - `tmp/ballast/timings.json` is the snapshot the shards plan from. Keep it in
