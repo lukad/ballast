@@ -9,9 +9,13 @@ defmodule Ballast.Generators do
           sync <- integer(0..5_000_000),
           async <- integer(0..5_000_000),
           longest <- integer(0..async),
+          # Not map_of/3: with only three keys it regularly gives up on duplicates
           groups <-
-            map_of(member_of([":db", ":search", "{:shard, 1}"]), integer(0..5_000_000),
-              max_length: 2
+            map(
+              list_of({member_of([":db", ":search", "{:shard, 1}"]), integer(0..5_000_000)},
+                max_length: 2
+              ),
+              &Map.new/1
             )
         ) do
       {sync, async, longest, groups}
