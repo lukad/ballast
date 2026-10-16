@@ -35,7 +35,7 @@ defmodule Mix.Tasks.Ballast.Test do
         [preferred_envs: ["ballast.test": :test, "ballast.merge": :test, "ballast.plan": :test]]
       end
 
-      defp deps, do: [{:ballast, "~> 0.1", only: :test, runtime: false}]
+      defp deps, do: [{:ballast, "~> 0.3.0", only: :test, runtime: false}]
 
       # test/test_helper.exs
       ExUnit.start(formatters: [ExUnit.CLIFormatter, Ballast.Formatter])

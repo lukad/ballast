@@ -8,5 +8,9 @@ if config_env() == :dev do
     github_handle_lookup?: true,
     version_tag_prefix: "v",
     manage_mix_version?: true,
-    manage_readme_version: true
+    manage_readme_version: [
+      "README.md",
+      "lib/mix/tasks/ballast.test.ex",
+      "lib/mix/tasks/ballast.install.ex"
+    ]
 end
