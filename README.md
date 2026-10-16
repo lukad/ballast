@@ -11,15 +11,15 @@ take, so one slow shard holds up CI. Ballast records how long each file takes
 and balances the shards so they finish together.
 
     $ mix ballast.plan --shards 4
-    73 files, 0 without history, max_cases 36, plan 69e9b4be5416
-
+    199 files, 0 without history, max_cases 36, plan 0556c9144666
+    
     shard  files  ballast  round-robin
-        1     41    31.4s        38.9s
-        2     22    31.4s        32.1s
-        3      3    31.5s        15.6s
-        4      7    31.5s        35.4s
-
-    slowest shard: 31.5s (round-robin: 38.9s)
+        1     12    57.9s        58.6s
+        2    105    57.7s        47.7s
+        3     30    57.9s        42.2s
+        4     52    57.9s        92.6s
+    
+    slowest shard: 57.9s (round-robin: 92.6s)
 
 ## Setup
 
